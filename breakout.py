@@ -28,6 +28,11 @@ logging.basicConfig(
 
 def sendEmail(text,subject):
     '''
+        Sending relevant information about initial buy/sell target prices as well as
+        stop loss and take profit prices, executed buy/sell orders, when all trades are
+        executed or allotted time has passed.
+        You need a sender email address with password, receiver email address
+        with fingerprint of public key.
     '''
     try:
         fingerprint = conf[3]
