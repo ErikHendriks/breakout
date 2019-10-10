@@ -2,6 +2,7 @@
 
 import numpy as np
 import pandas as pd
+from decimal import Decimal, getcontext
 
 #from oandapyV20 import API
 #from oandapyV20.endpoints.instruments import InstrumentsCandles
@@ -26,6 +27,19 @@ import pandas as pd
 #   prices[column] = prices[column].astype(float)
 
 class indicator():
+
+    def atr(prices,periods):
+        """
+        curH - curL;abso value curH - prevC;abso value curL - prevC
+        """
+#       print(prices[::-1])
+        trueRange = 0.0
+        for i in range(0,periods):
+            trueRange += max((prices['mid.h'][i] - prices['mid.l'][i]),\
+                        abs(prices['mid.h'][i] - prices['mid.c'][i-1]),\
+                        abs(prices['mid.l'][i] - prices['mid.c'][i-1]))
+
+        return round(trueRange/14,5)
 
     def bollinger(prices,periods,deviations):
         """
@@ -146,8 +160,9 @@ class indicator():
         periods: list of periods to compute indicator values
         return: dataframe moving average on close prices
         """
+#print(prices['mid.c'].rolling(center=False,window=periods[0]).mean())
 
-        return prices.close.rolling(center=False,window=periods[0]).mean()
+        return prices['mid.c'].rolling(center=False,window=periods[0]).mean()
 
 
     def paverage(prices,periods):
