@@ -32,41 +32,29 @@ accountID = conf[0]
 api = API(access_token = conf[1],\
           environment = conf[2])
 
-r = accounts.AccountSummary(accountID)
-api.request(r)
-print((float(r.response['account']['marginAvailable'])*0.002)*0.0001)
-#if dictkey ends with ['eur']:
-#   pip = 1
-#   stoploss = buyprice - float(r.response['account']['marginAvailable'])*0.002)*0.0001
-#elif dictkey starts with ['eur']:
-#   pip = divide foxed pip(2) rate by exchange rate
-#   stoploss = buyprice -
-#   float(r.response['account']['marginAvailable'])*0.002)*0
-#else:
-#   pip = counter currency / rate of account currency/counter currency
-#
 textList = []
 textList.append('Oanda v20 test rapport at '+str(datetime.datetime.now()))
 textList.append(' ')
-symbols = ['AUD_NZD','AUD_USD',\
-           'EUR_AUD','EUR_GBP','EUR_USD',\
-           'GBP_USD',\
-           'NZD_USD',\
-           'USD_CAD','USD_CHF']
-#symbols = ['AUD_CAD','AUD_CHF','AUD_JPY','AUD_NZD','AUD_USD',\
-#          'CAD_CHF','CAD_JPY',\
-#          'CHF_JPY',\
-#          'EUR_AUD','EUR_CAD','EUR_CHF','EUR_GBP','EUR_JPY','EUR_NZD','EUR_USD',\
-#          'GBP_AUD','GBP_CAD','GBP_CHF','GBP_JPY','GBP_NZD','GBP_USD',\
-#          'NZD_CAD','NZD_CHF','NZD_JPY','NZD_USD',\
-#          'USD_CAD','USD_CHF','USD_JPY']
+#symbols = ['AUD_NZD','AUD_USD',\
+#          'EUR_AUD','EUR_GBP','EUR_USD',\
+#          'GBP_USD',\
+#          'NZD_USD',\
+#          'USD_CAD','USD_CHF']
+symbols = ['AUD_CAD','AUD_CHF','AUD_JPY','AUD_NZD','AUD_USD',\
+           'CAD_CHF','CAD_JPY',\
+           'CHF_JPY',\
+           'EUR_AUD','EUR_CAD','EUR_CHF','EUR_GBP','EUR_JPY','EUR_NZD','EUR_USD',\
+           'GBP_AUD','GBP_CAD','GBP_CHF','GBP_JPY','GBP_NZD','GBP_USD',\
+           'NZD_CAD','NZD_CHF','NZD_JPY','NZD_USD',\
+           'USD_CAD','USD_CHF','USD_JPY']
 
-#params = {'instruments':'AUD_CAD,AUD_CHF,AUD_JPY,AUD_NZD,AUD_USD,CAD_CHF,CAD_JPY,CHF_JPY,EUR_AUD,EUR_CAD,EUR_CHF,EUR_GBP,EUR_JPY,EUR_NZD,EUR_USD,GBP_AUD,GBP_CAD,GBP_CHF,GBP_JPY,GBP_NZD,GBP_USD,NZD_CAD,NZD_CHF,NZD_JPY,NZD_USD,NZD_USD,USD_CAD,USD_CHF,USD_JPY'}
-params = {'instruments':'AUD_NZD,AUD_USD,EUR_AUD,EUR_GBP,EUR_USD,GBP_USD,NZD_USD,USD_CAD,USD_CHF'}
+params = {'instruments':'AUD_CAD,AUD_CHF,AUD_JPY,AUD_NZD,AUD_USD,CAD_CHF,CAD_JPY,CHF_JPY,EUR_AUD,EUR_CAD,EUR_CHF,EUR_GBP,EUR_JPY,EUR_NZD,EUR_USD,GBP_AUD,GBP_CAD,GBP_CHF,GBP_JPY,GBP_NZD,GBP_USD,NZD_CAD,NZD_CHF,NZD_JPY,NZD_USD,NZD_USD,USD_CAD,USD_CHF,USD_JPY'}
+#params = {'instruments':'AUD_NZD,AUD_USD,EUR_AUD,EUR_GBP,EUR_USD,GBP_USD,NZD_USD,USD_CAD,USD_CHF'}
 price = PricingStream(accountID=accountID,params=params)
 
 ohlcd = {'count': 103,'granularity': 'H1'}
 
+n1 = 0
 buyTrades = {}
 sellTrades = {}
 ma30 = {}
@@ -75,7 +63,7 @@ ma100 = {}
 atr = {}
 class Breakout():
 
-    def prepare():
+    def prepare(n1):
         for symbol in symbols:
             candle = InstrumentsCandles(instrument=symbol,params=ohlcd)
             api.request(candle)
@@ -104,30 +92,34 @@ class Breakout():
             and ma30[symbol].iloc[-2] > ma50[symbol].iloc[-2]\
             and ma50[symbol].iloc[-2] > ma100[symbol].iloc[-2]\
             and ma30[symbol].iloc[-3] > ma50[symbol].iloc[-3]\
-            and ma50[symbol].iloc[-3] > ma100[symbol].iloc[-3]:
+            and ma50[symbol].iloc[-3] > ma100[symbol].iloc[-3]\
+            and prices['mid.l'][-1] > ma30[symbol].iloc[-1]:
 
                 buyTrades[symbol] = []
                 buyTrades[symbol].append(round(prices['mid.h'][-3:].max().item(),5))
                 buyTrades[symbol].append(round(prices['mid.l'][-3:].min().item(),5))
                 buyTrades[symbol].append(False)
                 buyTrades[symbol].append(False)
-                print('buy')
-                print(buyTrades)
+                n1+=1
+#               print('buy')
+#               print(buyTrades)
 
             if ma30[symbol].iloc[-1] < ma50[symbol].iloc[-1]\
             and ma50[symbol].iloc[-1] < ma100[symbol].iloc[-1]\
             and ma30[symbol].iloc[-2] < ma50[symbol].iloc[-2]\
             and ma50[symbol].iloc[-2] < ma100[symbol].iloc[-2]\
             and ma30[symbol].iloc[-3] < ma50[symbol].iloc[-3]\
-            and ma50[symbol].iloc[-3] < ma100[symbol].iloc[-3]:
+            and ma50[symbol].iloc[-3] < ma100[symbol].iloc[-3]\
+            and prices['mid.h'][-1] < ma30[symbol].iloc[-1]:
 
                 sellTrades[symbol] = []
                 sellTrades[symbol].append(round(prices['mid.h'][-3:].max().item(),5))
                 sellTrades[symbol].append(round(prices['mid.l'][-3:].min().item(),5))
                 sellTrades[symbol].append(False)
                 sellTrades[symbol].append(False)
-                print('sell')
-                print(sellTrades)
+                n1+=1
+#               print('sell')
+#               print(sellTrades)
 
 
         textList.append('Buy Orders')
@@ -141,23 +133,25 @@ class Breakout():
 #       sendEmail(text,subject)
 
         print(text)
-        return buyTrades,sellTrades
+        print(n1)
+        return n1,buyTrades,sellTrades
 
-Breakout.prepare()
-timeout = 10800
+Breakout.prepare(n1)
+#timeout = 10800
 timeout_start = time.time()
-n = 0
+n2 = 0
+print(n2)
 while True:
 
-    if n == 9:
+    if n2 == 9:
 #   if n == 18:
         subject = 'Final rapport n at '+str(datetime.datetime.now())
         textList.append('Break n at '+str(datetime.datetime.now()))
         break
-    elif time.time() > (timeout_start + timeout):
-        subject = 'Final rapport t at '+str(datetime.datetime.now())
-        textList.append('Break time at '+str(datetime.datetime.now()))
-        break
+#   elif time.time() > (timeout_start + timeout):
+#       subject = 'Final rapport t at '+str(datetime.datetime.now())
+#       textList.append('Break time at '+str(datetime.datetime.now()))
+#       break
 
     try:
 #       print('ola')
@@ -216,7 +210,7 @@ while True:
                         sendEmail(str(buyOrder),subject)
                         sendEmail(str(rv),subject)
                         del buyTrades[p['instrument']]
-                        n+=1
+                        n2+=1
                         print('buy ')
                         print(p['instrument'])
                         print(buyTrades[p['instrument']])
@@ -269,7 +263,7 @@ while True:
                         sendEmail(str(sellOrder),subject)
                         sendEmail(str(rv),subject)
                         del sellTrades[p['instrument']]
-                        n+=1
+                        n2+=1
                         print('sell')
                         print(p['instrument'])
                         print(sellTrades[p['instrument']])
