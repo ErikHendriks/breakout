@@ -2,106 +2,155 @@
 
 import datetime
 import numpy as np
+import numpy as np
+import logging
+import oandapyV20
+import oandapyV20.endpoints.accounts as accounts
+import oandapyV20.endpoints.orders as orders
 import pandas as pd
+import requests
 import time
+import urllib3
 
 from indicators import indicator
 from oandapyV20 import API
+from oandapyV20.contrib.requests import *
 from oandapyV20.endpoints.instruments import InstrumentsCandles
 from oandapyV20.endpoints.pricing import PricingStream
 from oandapyV20.exceptions import V20Error, StreamTerminated
 from pandas.io.json import json_normalize
+from requests.exceptions import ConnectionError
 from sendInfo import sendEmail
+
+logging.basicConfig(
+    filename='/var/log/breakout.log',
+    level=logging.DEBUG,
+    format='%(asctime)s [%(levelname)s] %(name)s : %(message)s',)
 
 conf = [line.strip('\n') for line in open('/etc/breakout/conf.v20')]
 accountID = conf[0]
 api = API(access_token = conf[1],\
           environment = conf[2])
 
+r = accounts.AccountSummary(accountID)
+api.request(r)
+print((float(r.response['account']['marginAvailable'])*0.002)*0.0001)
+#if dictkey ends with ['eur']:
+#   pip = 1
+#   stoploss = buyprice - float(r.response['account']['marginAvailable'])*0.002)*0.0001
+#elif dictkey starts with ['eur']:
+#   pip = divide foxed pip(2) rate by exchange rate
+#   stoploss = buyprice -
+#   float(r.response['account']['marginAvailable'])*0.002)*0
+#else:
+#   pip = counter currency / rate of account currency/counter currency
+#
 textList = []
 textList.append('Oanda v20 test rapport at '+str(datetime.datetime.now()))
 textList.append(' ')
+symbols = ['AUD_NZD','AUD_USD',\
+           'EUR_AUD','EUR_GBP','EUR_USD',\
+           'GBP_USD',\
+           'NZD_USD',\
+           'USD_CAD','USD_CHF']
+#symbols = ['AUD_CAD','AUD_CHF','AUD_JPY','AUD_NZD','AUD_USD',\
+#          'CAD_CHF','CAD_JPY',\
+#          'CHF_JPY',\
+#          'EUR_AUD','EUR_CAD','EUR_CHF','EUR_GBP','EUR_JPY','EUR_NZD','EUR_USD',\
+#          'GBP_AUD','GBP_CAD','GBP_CHF','GBP_JPY','GBP_NZD','GBP_USD',\
+#          'NZD_CAD','NZD_CHF','NZD_JPY','NZD_USD',\
+#          'USD_CAD','USD_CHF','USD_JPY']
 
-symbols = ['EUR_GBP','EUR_USD','GBP_USD']
-ohlcd = {'count': 50,'granularity': 'H1'}
+#params = {'instruments':'AUD_CAD,AUD_CHF,AUD_JPY,AUD_NZD,AUD_USD,CAD_CHF,CAD_JPY,CHF_JPY,EUR_AUD,EUR_CAD,EUR_CHF,EUR_GBP,EUR_JPY,EUR_NZD,EUR_USD,GBP_AUD,GBP_CAD,GBP_CHF,GBP_JPY,GBP_NZD,GBP_USD,NZD_CAD,NZD_CHF,NZD_JPY,NZD_USD,NZD_USD,USD_CAD,USD_CHF,USD_JPY'}
+params = {'instruments':'AUD_NZD,AUD_USD,EUR_AUD,EUR_GBP,EUR_USD,GBP_USD,NZD_USD,USD_CAD,USD_CHF'}
+price = PricingStream(accountID=accountID,params=params)
 
-"""
-## Create lists of each period required by the functions
-"""
-bollingerKey = [15]
-cciKey = [15]
-macdKey = [15,30]
-momentumKey = [3,4,5,8,9,10]
-movingAverageKey = [30]
-paverageKey = [2]
-procKey = [12,13,14,15]
-williamsKey = [6,7,8,9,10]
+ohlcd = {'count': 103,'granularity': 'H1'}
 
-price = {}
-trades = {}
-bands = {}
-cci = {}
-macd = {}
-momentum = {}
+buyTrades = {}
+sellTrades = {}
 ma30 = {}
 ma50 = {}
 ma100 = {}
-paverage = {}
-proc = {}
-williams = {}
+atr = {}
+class Breakout():
 
-n = 3
-for symbol in symbols:
-    trades[symbol] = []
-    candle = InstrumentsCandles(instrument=symbol,params=ohlcd)
-    api.request(candle)
+    def prepare():
+        for symbol in symbols:
+            candle = InstrumentsCandles(instrument=symbol,params=ohlcd)
+            api.request(candle)
 
-    prices = pd.DataFrame.from_dict(json_normalize(candle.response['candles']))
-    prices.time = pd.to_datetime(prices.time)
-    prices = prices.set_index(prices.time)
-    prices.columns = [['complete','close','high','low','open','time','volume']]
+#           pprint.pprint(candle.response['candles'])
+            prices = pd.DataFrame.from_dict(json_normalize(candle.response['candles']))
+            prices.time = pd.to_datetime(prices.time)
+            prices = prices.set_index(prices.time)
+#           print(prices)
+#           prices.columns = [['complete','volume','time','open','high','low','close']]
 
-    for column in ['close','high','low','open']:
-        prices[column] = prices[column].astype(float)
+#           print(prices)
+            for column in 'mid.c','mid.h','mid.l','mid.o':
+                prices[column] = prices[column].astype(float)
 
-    trades[symbol].append(prices.high[-3:].max().item() + 0.0005)
-    trades[symbol].append(prices.low[-3:].min().item() - 0.0005)
-    trades[symbol].append(False)
-    trades[symbol].append(False)
-    n-=1
-#   print(trades[symbol][2])
-#   print(trades[symbol][3])
-#   print(prices.high[-3:].max())
-#   print(prices.low[-3:].min().item())
-#   print(prices)
-#   price[symbol] = prices
-#   bands[symbol] = indicator.bollinger(price[symbol],bollingerKey,2)
-#   cci[symbol] = indicator.cci(prices,cciKey)
-#   macd[symbol] = indicator.macd(prices,macdKey)
-#   momentum[symbol] = indicator.momentum(prices,momentumKey)
-#   ma30[symbol] = indicator.movingAverage(price[symbol],[30])
-#   ma50[symbol] = indicator.movingAverage(price[symbol],[50])
-#   ma100[symbol] = indicator.movingAverage(price[symbol],[100])
-#   paverage[symbol] = indicator.paverage(prices,paverageKey)
-#   proc[symbol] = indicator.proc(prices,procKey)
-#   williams[symbol] = indicator.williams(prices,williamsKey)
+#           print(prices)
+
+            atr[symbol] = indicator.atr(prices,14)
+            ma30[symbol] = indicator.movingAverage(prices,[30])
+            ma50[symbol] = indicator.movingAverage(prices,[50])
+            ma100[symbol] = indicator.movingAverage(prices,[100])
+#           print(ma100[symbol])
+#           print(ma30[symbol].iloc[-3])
+            if ma30[symbol].iloc[-1] > ma50[symbol].iloc[-1]\
+            and ma50[symbol].iloc[-1] > ma100[symbol].iloc[-1]\
+            and ma30[symbol].iloc[-2] > ma50[symbol].iloc[-2]\
+            and ma50[symbol].iloc[-2] > ma100[symbol].iloc[-2]\
+            and ma30[symbol].iloc[-3] > ma50[symbol].iloc[-3]\
+            and ma50[symbol].iloc[-3] > ma100[symbol].iloc[-3]:
+
+                buyTrades[symbol] = []
+                buyTrades[symbol].append(round(prices['mid.h'][-3:].max().item(),5))
+                buyTrades[symbol].append(round(prices['mid.l'][-3:].min().item(),5))
+                buyTrades[symbol].append(False)
+                buyTrades[symbol].append(False)
+                print('buy')
+                print(buyTrades)
+
+            if ma30[symbol].iloc[-1] < ma50[symbol].iloc[-1]\
+            and ma50[symbol].iloc[-1] < ma100[symbol].iloc[-1]\
+            and ma30[symbol].iloc[-2] < ma50[symbol].iloc[-2]\
+            and ma50[symbol].iloc[-2] < ma100[symbol].iloc[-2]\
+            and ma30[symbol].iloc[-3] < ma50[symbol].iloc[-3]\
+            and ma50[symbol].iloc[-3] < ma100[symbol].iloc[-3]:
+
+                sellTrades[symbol] = []
+                sellTrades[symbol].append(round(prices['mid.h'][-3:].max().item(),5))
+                sellTrades[symbol].append(round(prices['mid.l'][-3:].min().item(),5))
+                sellTrades[symbol].append(False)
+                sellTrades[symbol].append(False)
+                print('sell')
+                print(sellTrades)
 
 
-#params = {'instruments':'GBP_USD,GBP_AUD,EUR_USD,GBP_NZD,EUR_AUD,NZD_USD,EUR_NZD,AUD_USD,GBP_CAD,EUR_CAD,AUD_NZD,EUR_GBP,AUD_CAD,GBP_CHF,USD_CAD,EUR_CHF,AUD_CHF,USD_CHF'}
-#params = {'instruments':'AUD_CAD,AUD_CHF,AUD_JPY,AUD_NZD,AUD_USD,CAD_CHF,CAD_JPY,CHF_JPY,EUR_AUD,EUR_CAD,EUR_CHF,EUR_GBP,EUR_JPY,EUR_NZD,EUR_USD,GBP_AUD,GBP_CAD,GBP_CHF,GBP_JPY,GBP_NZD,GBP_USD,NZD_CAD,NZD_CHF,NZD_JPY,NZD_USD,NZD_USD,USD_CAD,USD_CHF,USD_JPY'}
-params = {'instruments':'EUR_GBP,EUR_USD,GBP_USD'}
-prices = PricingStream(accountID=accountID,params=params)
+        textList.append('Buy Orders')
+        textList.append(buyTrades)
+        textList.append(' ')
+        textList.append('Sell Orders')
+        textList.append(sellTrades)
+        textList.append(' ')
+        text = '\n'.join(map(str,textList))
+        subject = 'Start rapport breakout at '+str(datetime.datetime.now())
+#       sendEmail(text,subject)
 
+        print(text)
+        return buyTrades,sellTrades
 
-textList = []
-textList.append('Oanda v20 breakout rapport at '+str(datetime.datetime.now()))
-textList.append(' ')
-
-timeout = 7200
+Breakout.prepare()
+timeout = 10800
 timeout_start = time.time()
+n = 0
 while True:
 
-    if n == 3:
+    if n == 9:
+#   if n == 18:
         subject = 'Final rapport n at '+str(datetime.datetime.now())
         textList.append('Break n at '+str(datetime.datetime.now()))
         break
@@ -111,33 +160,46 @@ while True:
         break
 
     try:
-        for p in api.request(prices):
-
-            if not trades[p['instrument']]:
-                pass
-            else:
+#       print('ola')
+        for p in api.request(price):
+#           print(p['instrument'])
+            if p['instrument'] in buyTrades:
+#               print(buyTrades[p['instrument']])
+#               print(buyTrades[p['instrument']][0])
+#               print(buyTrades[p['instrument']][1])
+#               print(buyTrades[p['instrument']][2])
+#               print(buyTrades[p['instrument']][3])
                 buy = float(p['asks'][0]['price'])
-                sell = float(p['bids'][0]['price'])
-                if buy > trades[p['instrument']][0]:
-                    if trades[p['instrument']][2] == False:
+#               print('buy',buy)
+                if buy > buyTrades[p['instrument']][0]:
+                    print('hello')
+                    if buyTrades[p['instrument']][2] == False:
+                        print('privet')
+#
+                        buyTrades[p['instrument']][2] = True
+                        buyTrades[p['instrument']][3] = False
+                        time.sleep(0.01)
+                        print('buy check 1')
+                        print(p['instrument'])
+                        print(buyTrades[p['instrument']])
 
-                        trades[p['instrument']].remove(2)
-                        trades[p['instrument']].insert(2,True)
-                        trades[p['instrument']].remove(3)
-                        trades[p['instrument']].insert(3,False)
-                        time.sleep(.100)
+                    elif buyTrades[p['instrument']][2] == True\
+                    and buyTrades[p['instrument']][3] == False:
 
-                    elif trades[p['instrument']][2] == True\
-                    and trades[p['instrument']][3] == False:
-                        trades[p['instrument']].remove(3)
-                        trades[p['instrument']].insert(3,True)
-                        time.sleep(.100)
+                        buyTrades[p['instrument']][3] = True
+                        time.sleep(0.01)
+                        print('buy check 2')
+                        print(p['instrument'])
+                        print(buyTrades[p['instrument']])
 
-                    elif trades[p['instrument']][3] == True\
-                    and trades[p['instrument']][2] == True:
+                    elif buyTrades[p['instrument']][3] == True\
+                    and buyTrades[p['instrument']][2] == True:
 
-                        stopLoss = p['asks'][0]['price'] - 0.0025
-                        takeProfit = p['asks'][0]['price'] + 0.005
+                        r = accounts.AccountSummary(accountID)
+                        api.request(r)
+
+                        stopLoss = buyTrades[p['instrument']][1] - atr[p['instrument']]
+                        takeProfit = buyTrades[p['instrument']][0] + (atr[p['instrument']] * 2)
 
                         buyOrder = MarketOrderRequest(instrument=p['instrument'],\
                                       units=2000,\
@@ -153,36 +215,44 @@ while True:
                         subject = 'buy '+p['instrument']+' at '+str(datetime.datetime.now())
                         sendEmail(str(buyOrder),subject)
                         sendEmail(str(rv),subject)
-                        del trades[p['instrument']]
+                        del buyTrades[p['instrument']]
                         n+=1
+                        print('buy ')
+                        print(p['instrument'])
+                        print(buyTrades[p['instrument']])
 
-                    else:
-                        trades[p['instrument']].remove(2)
-                        trades[p['instrument']].insert(2,False)
-                        trades[p['instrument']].remove(3)
-                        trades[p['instrument']].insert(3,False)
-                        time.sleep(.100)
+            elif p['instrument'] in sellTrades:
+#               print(sellTrades[p['instrument']])
+#               print(sellTrades[p['instrument']][0])
+#               print(sellTrades[p['instrument']][1])
+#               print(sellTrades[p['instrument']][2])
+#               print(sellTrades[p['instrument']][3])
+                sell = float(p['bids'][0]['price'])
 
-                elif sell < trades[p['instrument']][1]:
-                    if trades[p['instrument']][3] == False:
+                if sell < sellTrades[p['instrument']][1]:
+                    if sellTrades[p['instrument']][3] == False:
 
-                        trades[p['instrument']].remove(3)
-                        trades[p['instrument']].insert(3,True)
-                        trades[p['instrument']].remove(2)
-                        trades[p['instrument']].insert(2,False)
-                        time.sleep(.100)
+                        sellTrades[p['instrument']][3] = True
+                        sellTrades[p['instrument']][2] = False
+                        time.sleep(0.01)
+                        print('sell check 1')
+                        print(p['instrument'])
+                        print(sellTrades[p['instrument']])
 
-                    elif trades[p['instrument']][3] == True\
-                    and trades[p['instrument']][2] == False:
-                        trades[p['instrument']].remove(2)
-                        trades[p['instrument']].insert(2,True)
-                        time.sleep(.100)
+                    elif sellTrades[p['instrument']][3] == True\
+                    and sellTrades[p['instrument']][2] == False:
 
-                    elif trades[p['instrument']][2] == True\
-                    and trades[p['instrument']][3] == True:
+                        sellTrades[p['instrument']][2] = True
+                        time.sleep(0.01)
+                        print('sell check 2')
+                        print(p['instrument'])
+                        print(sellTrades[p['instrument']])
 
-                        stopLoss = p['bids'][0]['price'] + 0.0025
-                        takeProfit = p['bids'][0]['price'] - 0.005
+                    elif sellTrades[p['instrument']][2] == True\
+                    and sellTrades[p['instrument']][3] == True:
+
+                        stopLoss = buyTrades[p['instrument']][1] + atr[p['instrument']]
+                        takeProfit = buyTrades[p['instrument']][0] - (atr[p['instrument']] * 2)
 
                         sellOrder = MarketOrderRequest(instrument=p['instrument'],\
                                       units=-2000,\
@@ -198,15 +268,14 @@ while True:
                         subject = 'sell '+p['instrument']+' at '+str(datetime.datetime.now())
                         sendEmail(str(sellOrder),subject)
                         sendEmail(str(rv),subject)
-                        del trades[p['instrument']]
+                        del sellTrades[p['instrument']]
                         n+=1
-
-                    else:
-                        trades[p['instrument']].remove(2)
-                        trades[p['instrument']].insert(2,False)
-                        trades[p['instrument']].remove(3)
-                        trades[p['instrument']].insert(3,False)
-                        time.sleep(.100)
+                        print('sell')
+                        print(p['instrument'])
+                        print(sellTrades[p['instrument']])
+            else:
+                pass
+#               print('nothing')
 
     except V20Error as e:
         # catch API related errors that may occur
@@ -229,40 +298,4 @@ while True:
             LOG.write(str(datetime.datetime.now()) + ' Exception: {}\n'.format(e))
         pass
 
-text = '\n'.join(map(str,textList))
-sendEmail(text,subject)
-
-#print('price ',price)
-#print('banda ',bands)
-#print('cci ',cci)
-#print('macd ',macd)
-#print('momentum ',momentum)
-#print('ma30 ',ma30)
-#print('ma50 ',ma50)
-#print('ma100 ',ma100)
-#print('paverage ',paverage)
-#print('proc ',proc)
-#print('williams ',williams)
-
-#print(ma50['EUR_USD']['close'].values[-1])
-
-#print(bands)
-#bollingerDict = indicator.bollinger(prices,bollingerKey,2)
-#cciDict = indicator.cci(prices,cciKey)
-#macdDict = indicator.macd(prices,macdKey)
-#momentumDict = indicator.momentum(prices,momentumKey)
-#movingAverageDict = indicator.movingAverage(prices,movingAverageKey)
-#paverageDict = indicator.paverage(prices,paverageKey)
-#procDict = indicator.proc(prices,procKey)
-#williamsDict = indicator.williams(prices,williamsKey)
-
-#macd = indicator.macd(prices,macdKey)
-#bands = indicator.bollinger(prices,bollingerKey,2)
-#cci = indicator.cci(prices,cciKey)
-#print(indicator.movingAverage(prices,movingAverageKey))
-
-#for symbol in symbols:
-#   print(indicator.bollinger(price[symbol],bollingerKey,2))
-
-#print(bands[15]['upper'].values[-2])
 
