@@ -32,13 +32,14 @@ class indicator():
         """
         curH - curL;abso value curH - prevC;abso value curL - prevC
         """
-#       print(prices[::-1])
+        prices = prices[::-1]
         trueRange = 0.0
-        for i in range(0,periods):
+        for i in range(0,periods[0]):
             trueRange += max((prices['mid.h'][i] - prices['mid.l'][i]),\
-                        abs(prices['mid.h'][i] - prices['mid.c'][i-1]),\
-                        abs(prices['mid.l'][i] - prices['mid.c'][i-1]))
+                        abs(prices['mid.h'][i] - prices['mid.c'][i+1]),\
+                        abs(prices['mid.l'][i] - prices['mid.c'][i+1]))
 
+#       print(round(trueRange/14,5))
         return round(trueRange/14,5)
 
     def bollinger(prices,periods,deviations):

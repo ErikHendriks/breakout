@@ -54,6 +54,7 @@ price = PricingStream(accountID=accountID,params=params)
 
 ohlcd = {'count': 103,'granularity': 'H1'}
 
+n1 = 0
 buyTrades = {}
 sellTrades = {}
 ma30 = {}
@@ -62,7 +63,7 @@ ma100 = {}
 atr = {}
 class Breakout():
 
-    def prepare():
+    def prepare(n1):
         for symbol in symbols:
             candle = InstrumentsCandles(instrument=symbol,params=ohlcd)
             api.request(candle)
@@ -80,7 +81,7 @@ class Breakout():
 
 #           print(prices)
 
-            atr[symbol] = indicator.atr(prices,[14])
+            atr[symbol] = indicator.atr(prices,14)
             ma30[symbol] = indicator.movingAverage(prices,[30])
             ma50[symbol] = indicator.movingAverage(prices,[50])
             ma100[symbol] = indicator.movingAverage(prices,[100])
@@ -99,6 +100,7 @@ class Breakout():
                 buyTrades[symbol].append(round(prices['mid.l'][-3:].min().item(),5))
                 buyTrades[symbol].append(False)
                 buyTrades[symbol].append(False)
+                n1+=1
 #               print('buy')
 #               print(buyTrades)
 
@@ -115,6 +117,7 @@ class Breakout():
                 sellTrades[symbol].append(round(prices['mid.l'][-3:].min().item(),5))
                 sellTrades[symbol].append(False)
                 sellTrades[symbol].append(False)
+                n1+=1
 #               print('sell')
 #               print(sellTrades)
 
@@ -127,25 +130,28 @@ class Breakout():
         textList.append(' ')
         text = '\n'.join(map(str,textList))
         subject = 'Start rapport breakout at '+str(datetime.datetime.now())
-        sendEmail(text,subject)
+#       sendEmail(text,subject)
 
-        return buyTrades,sellTrades
+        print(text)
+        print(n1)
+        return n1,buyTrades,sellTrades
 
-Breakout.prepare()
-timeout = 10800
+Breakout.prepare(n1)
+#timeout = 10800
 timeout_start = time.time()
-n1 = (len(buyTrades)+len(sellTrades))
 n2 = 0
+print(n2)
 while True:
 
-    if n2 == n1:
+    if n2 == 9:
+#   if n == 18:
         subject = 'Final rapport n at '+str(datetime.datetime.now())
         textList.append('Break n at '+str(datetime.datetime.now()))
         break
-    elif time.time() > (timeout_start + timeout):
-        subject = 'Final rapport t at '+str(datetime.datetime.now())
-        textList.append('Break time at '+str(datetime.datetime.now()))
-        break
+#   elif time.time() > (timeout_start + timeout):
+#       subject = 'Final rapport t at '+str(datetime.datetime.now())
+#       textList.append('Break time at '+str(datetime.datetime.now()))
+#       break
 
     try:
 #       print('ola')
@@ -160,24 +166,25 @@ while True:
                 buy = float(p['asks'][0]['price'])
 #               print('buy',buy)
                 if buy > buyTrades[p['instrument']][0]:
+                    print('hello')
                     if buyTrades[p['instrument']][2] == False:
-#                   print('privet')
-
+                        print('privet')
+#
                         buyTrades[p['instrument']][2] = True
                         buyTrades[p['instrument']][3] = False
                         time.sleep(0.01)
-#                       print('buy check 1')
-#                       print(p['instrument'])
-#                       print(buyTrades[p['instrument']])
+                        print('buy check 1')
+                        print(p['instrument'])
+                        print(buyTrades[p['instrument']])
 
                     elif buyTrades[p['instrument']][2] == True\
                     and buyTrades[p['instrument']][3] == False:
 
                         buyTrades[p['instrument']][3] = True
                         time.sleep(0.01)
-#                       print('buy check 2')
-#                       print(p['instrument'])
-#                       print(buyTrades[p['instrument']])
+                        print('buy check 2')
+                        print(p['instrument'])
+                        print(buyTrades[p['instrument']])
 
                     elif buyTrades[p['instrument']][3] == True\
                     and buyTrades[p['instrument']][2] == True:
@@ -200,12 +207,13 @@ while True:
                         textList.append(rv)
                         textList.append(' ')
                         subject = 'buy '+p['instrument']+' at '+str(datetime.datetime.now())
-    #                   sendEmail(str(buyOrder),subject)
+                        sendEmail(str(buyOrder),subject)
                         sendEmail(str(rv),subject)
                         del buyTrades[p['instrument']]
-#                       print('buy ')
-#                       print(p['instrument'])
-#                       print(buyTrades[p['instrument']])
+                        n2+=1
+                        print('buy ')
+                        print(p['instrument'])
+                        print(buyTrades[p['instrument']])
 
             elif p['instrument'] in sellTrades:
 #               print(sellTrades[p['instrument']])
@@ -220,19 +228,19 @@ while True:
 
                         sellTrades[p['instrument']][3] = True
                         sellTrades[p['instrument']][2] = False
-#                       time.sleep(0.01)
-#                       print('sell check 1')
-#                       print(p['instrument'])
-#                       print(sellTrades[p['instrument']])
+                        time.sleep(0.01)
+                        print('sell check 1')
+                        print(p['instrument'])
+                        print(sellTrades[p['instrument']])
 
                     elif sellTrades[p['instrument']][3] == True\
                     and sellTrades[p['instrument']][2] == False:
 
                         sellTrades[p['instrument']][2] = True
-#                       time.sleep(0.01)
-#                       print('sell check 2')
-#                       print(p['instrument'])
-#                       print(sellTrades[p['instrument']])
+                        time.sleep(0.01)
+                        print('sell check 2')
+                        print(p['instrument'])
+                        print(sellTrades[p['instrument']])
 
                     elif sellTrades[p['instrument']][2] == True\
                     and sellTrades[p['instrument']][3] == True:
@@ -252,12 +260,13 @@ while True:
                         textList.append(rv)
                         textList.append(' ')
                         subject = 'sell '+p['instrument']+' at '+str(datetime.datetime.now())
-    #                   sendEmail(str(sellOrder),subject)
+                        sendEmail(str(sellOrder),subject)
                         sendEmail(str(rv),subject)
                         del sellTrades[p['instrument']]
-#                       print('sell')
-#                       print(p['instrument'])
-#                       print(sellTrades[p['instrument']])
+                        n2+=1
+                        print('sell')
+                        print(p['instrument'])
+                        print(sellTrades[p['instrument']])
             else:
                 pass
 #               print('nothing')
