@@ -161,7 +161,9 @@ class indicator():
         periods: list of periods to compute indicator values
         return: dataframe moving average on close prices
         """
-#print(prices['mid.c'].rolling(center=False,window=periods[0]).mean())
+#       print(prices['mid.c'].rolling(center=False,window=periods[0]).mean())
+#       prices = prices[::-1]
+#       print(prices['mid.c'].rolling(center=False,window=periods[0]).mean())
 
         return prices['mid.c'].rolling(center=False,window=periods[0]).mean()
 

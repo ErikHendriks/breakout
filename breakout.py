@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import datetime
+import json
 import numpy as np
 import numpy as np
 import logging
@@ -52,7 +53,7 @@ params = {'instruments':'AUD_CAD,AUD_CHF,AUD_JPY,AUD_NZD,AUD_USD,CAD_CHF,CAD_JPY
 #params = {'instruments':'AUD_NZD,AUD_USD,EUR_AUD,EUR_GBP,EUR_USD,GBP_USD,NZD_USD,USD_CAD,USD_CHF'}
 price = PricingStream(accountID=accountID,params=params)
 
-ohlcd = {'count': 103,'granularity': 'H1'}
+ohlcd = {'count': 163,'granularity': 'H1'}
 
 buyTrades = {}
 sellTrades = {}
@@ -61,6 +62,12 @@ ma50 = {}
 ma100 = {}
 atr = {}
 class Breakout():
+
+    def all(iterable):
+        for element in iterable:
+            if not element:
+                return False
+        return True
 
     def prepare():
         for symbol in symbols:
@@ -86,13 +93,25 @@ class Breakout():
             ma100[symbol] = indicator.movingAverage(prices,[100])
 #           print(ma100[symbol])
 #           print(ma30[symbol].iloc[-3])
-            if ma30[symbol].iloc[-1] > ma50[symbol].iloc[-1]\
-            and ma50[symbol].iloc[-1] > ma100[symbol].iloc[-1]\
-            and ma30[symbol].iloc[-2] > ma50[symbol].iloc[-2]\
-            and ma50[symbol].iloc[-2] > ma100[symbol].iloc[-2]\
-            and ma30[symbol].iloc[-3] > ma50[symbol].iloc[-3]\
-            and ma50[symbol].iloc[-3] > ma100[symbol].iloc[-3]\
+            buyRule1 = [[i for i in ma30[symbol].iloc[range(-6,-1)]] > [i for i in ma50[symbol].iloc[range(-10,-1)]]]
+            buyRule2 = [[i for i in ma50[symbol].iloc[range(-6,-1)]] > [i for i in ma100[symbol].iloc[range(-10,-1)]]]
+
+#           print('1 ',buyRule1)
+#           print('2 ',buyRule2)
+
+            if buyRule1[0] is True\
+            and buyRule2[0] is True\
             and prices['mid.l'][-1] > ma30[symbol].iloc[-1]:
+#               print('true')
+#           if ma30[symbol].iloc[-1] > ma50[symbol].iloc[-1]\
+#           and ma50[symbol].iloc[-1] > ma100[symbol].iloc[-1]\
+#           and ma30[symbol].iloc[-2] > ma50[symbol].iloc[-2]\
+#           and ma50[symbol].iloc[-2] > ma100[symbol].iloc[-2]\
+#           and ma30[symbol].iloc[-3] > ma50[symbol].iloc[-3]\
+#           and ma30[symbol].iloc[-3] > ma50[symbol].iloc[-3]\
+#           and ma50[symbol].iloc[-4] > ma100[symbol].iloc[-4]\
+#           and ma50[symbol].iloc[-4] > ma100[symbol].iloc[-4]\
+#           and prices['mid.l'][-1] > ma30[symbol].iloc[-1]:
 
                 buyTrades[symbol] = []
                 buyTrades[symbol].append(round(prices['mid.h'][-3:].max().item(),5))
@@ -102,13 +121,23 @@ class Breakout():
 #               print('buy')
 #               print(buyTrades)
 
-            if ma30[symbol].iloc[-1] < ma50[symbol].iloc[-1]\
-            and ma50[symbol].iloc[-1] < ma100[symbol].iloc[-1]\
-            and ma30[symbol].iloc[-2] < ma50[symbol].iloc[-2]\
-            and ma50[symbol].iloc[-2] < ma100[symbol].iloc[-2]\
-            and ma30[symbol].iloc[-3] < ma50[symbol].iloc[-3]\
-            and ma50[symbol].iloc[-3] < ma100[symbol].iloc[-3]\
+            sellRule1 = [[i for i in ma30[symbol].iloc[range(-6,-1)]] < [i for i in ma50[symbol].iloc[range(-10,-1)]]]
+            sellRule2 = [[i for i in ma50[symbol].iloc[range(-6,-1)]] < [i for i in ma100[symbol].iloc[range(-10,-1)]]]
+
+#           print('1 ',sellRule1)
+#           print('2 ',sellRule2)
+            if sellRule1[0] is True\
+            and sellRule2[0] is True\
             and prices['mid.h'][-1] < ma30[symbol].iloc[-1]:
+#           if ma30[symbol].iloc[-1] < ma50[symbol].iloc[-1]\
+#           and ma50[symbol].iloc[-1] < ma100[symbol].iloc[-1]\
+#           and ma30[symbol].iloc[-2] < ma50[symbol].iloc[-2]\
+#           and ma50[symbol].iloc[-2] < ma100[symbol].iloc[-2]\
+#           and ma30[symbol].iloc[-3] < ma50[symbol].iloc[-3]\
+#           and ma30[symbol].iloc[-3] < ma50[symbol].iloc[-3]\
+#           and ma50[symbol].iloc[-4] < ma100[symbol].iloc[-4]\
+#           and ma50[symbol].iloc[-4] < ma100[symbol].iloc[-4]\
+#           and prices['mid.h'][-1] < ma30[symbol].iloc[-1]:
 
                 sellTrades[symbol] = []
                 sellTrades[symbol].append(round(prices['mid.h'][-3:].max().item(),5))
@@ -197,12 +226,14 @@ while True:
                         textList.append('Buy Order')
                         textList.append(buyOrder)
                         textList.append(' ')
-                        textList.append(rv)
-                        textList.append(' ')
+#                       textList.append(rv)
+#                       textList.append(' ')
                         subject = 'buy '+p['instrument']+' at '+str(datetime.datetime.now())
-    #                   sendEmail(str(buyOrder),subject)
-                        sendEmail(str(rv),subject)
+#                       sendEmail(str(buyOrder),subject)
+                        sendEmail(str(json.dumps(rv)),subject)
+                        print(str(json.dumps(rv)))
                         del buyTrades[p['instrument']]
+                        n2+=1
 #                       print('buy ')
 #                       print(p['instrument'])
 #                       print(buyTrades[p['instrument']])
@@ -237,8 +268,8 @@ while True:
                     elif sellTrades[p['instrument']][2] == True\
                     and sellTrades[p['instrument']][3] == True:
 
-                        stopLoss = buyTrades[p['instrument']][1] + atr[p['instrument']]
-                        takeProfit = buyTrades[p['instrument']][0] - (atr[p['instrument']] * 2)
+                        stopLoss = buyTrades[p['instrument']][0] + atr[p['instrument']]
+                        takeProfit = buyTrades[p['instrument']][1] - (atr[p['instrument']] * 2)
 
                         sellOrder = MarketOrderRequest(instrument=p['instrument'],\
                                       units=-2000,\
@@ -249,12 +280,14 @@ while True:
                         textList.append('Sell Order')
                         textList.append(sellOrder)
                         textList.append(' ')
-                        textList.append(rv)
-                        textList.append(' ')
+#                       textList.append(rv)
+#                       textList.append(' ')
                         subject = 'sell '+p['instrument']+' at '+str(datetime.datetime.now())
-    #                   sendEmail(str(sellOrder),subject)
-                        sendEmail(str(rv),subject)
+#                       sendEmail(str(sellOrder),subject)
+                        sendEmail(str(json.dumps(rv)),subject)
+                        print(str(json.dumps(rv)))
                         del sellTrades[p['instrument']]
+                        n2+=1
 #                       print('sell')
 #                       print(p['instrument'])
 #                       print(sellTrades[p['instrument']])
@@ -283,4 +316,6 @@ while True:
             LOG.write(str(datetime.datetime.now()) + ' Exception: {}\n'.format(e))
         pass
 
-
+text = '\n'.join(map(str,textList))
+subject = 'Final rapport breakout at '+str(datetime.datetime.now())
+sendEmail(text,subject)
