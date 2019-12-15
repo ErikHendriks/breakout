@@ -166,7 +166,15 @@ while True:
 
                     buyTrades[p['instrument']][2] = True
                     buyTrades[p['instrument']][3] = False
-                    print('buy1')
+#                   print('buy0')
+
+                elif buy < ma30[p['instrument']].iloc[-1]\
+                and buy > ma50[p['instrument']].iloc[-1]\
+                and buyTrades[p['instrument']][2] == True:
+
+                    buyTrades[p['instrument']][2] = False
+                    buyTrades[p['instrument']][3] = False
+#                   print('buy1')
 
                 elif buy > buyTrades[p['instrument']][0]\
                 and buyTrades[p['instrument']][2] == True\
@@ -175,7 +183,7 @@ while True:
 
                     buyTrades[p['instrument']][3] = True
 #                   time.sleep(0.01)
-                    print('buy2')
+#                   print('buy2')
 #                   print(p['instrument'])
 #                   print(buyTrades[p['instrument']])
 
@@ -219,7 +227,7 @@ while True:
 #                   print(str(json.dumps(rv)))
                     del buyTrades[p['instrument']]
                     n2+=1
-                    print('buy ',rv)
+#                   print('buy ',rv)
 #                   print(p['instrument'])
 #                   print(buyTrades[p['instrument']])
 
@@ -236,7 +244,16 @@ while True:
 
                     sellTrades[p['instrument']][2] = True
                     sellTrades[p['instrument']][3] = False
-                    print('sell1')
+#                   print('sell0')
+
+                elif sell > ma30[p['instrument']].iloc[-1]\
+                and sell < ma50[p['instrument']].iloc[-1]\
+                and sellTrades[p['instrument']][2] == True:
+
+                    sellTrades[p['instrument']][2] = False
+                    sellTrades[p['instrument']][3] = False
+#                   print('sell1')
+
 
                 elif sell < sellTrades[p['instrument']][1]\
                 and sellTrades[p['instrument']][2] == True\
@@ -244,7 +261,7 @@ while True:
 
                     sellTrades[p['instrument']][3] = True
 #                   time.sleep(0.01)
-                    print('sell2')
+#                   print('sell2')
 #                   print(p['instrument'])
 #                   print(sellTrades[p['instrument']])
 
@@ -285,7 +302,7 @@ while True:
 #                   print(str(json.dumps(rv)))
                     del sellTrades[p['instrument']]
                     n2+=1
-                    print('sell ',rv)
+#                   print('sell ',rv)
 #                   print(p['instrument'])
 #                   print(sellTrades[p['instrument']])
             else:
@@ -340,3 +357,5 @@ while True:
         with open('/var/log/breakout2.log', 'a') as LOG:
             LOG.write(str(datetime.datetime.now()) + ' Exception: {}\n'.format(e))
         pass
+
+
